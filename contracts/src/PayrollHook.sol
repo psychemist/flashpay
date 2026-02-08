@@ -85,8 +85,12 @@ contract PayrollHook is IHooks {
     // orgId => admin address
     mapping(uint256 => address) public orgAdmins;
 
-    // Total loan pool balance
+    // Total loan pool balance (Legacy/Internal)
     uint256 public loanPoolBalance;
+
+    // External LendingPool integration
+    address public lendingPool;
+    address public owner;
 
     // Constants
     uint256 public constant DEFAULT_MAX_LTV = 5000; // 50%
@@ -95,6 +99,44 @@ contract PayrollHook is IHooks {
     // ============ Constructor ============
     constructor(IPoolManager _poolManager) {
         poolManager = _poolManager;
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOrgAdmin(); // Reuse error
+        _;
+    }
+
+    function setLendingPool(address _lendingPool) external onlyOwner {
+        lendingPool = _lendingPool;
+    }
+
+    // Mock function for testing without Uniswap v4
+    function setMockPosition(
+        uint256 orgId,
+        address employee,
+        uint128 liquidity
+    ) external onlyOwner {
+        // PoolId 0 for mock
+        PoolId poolId = PoolId.wrap(bytes32(0));
+
+        EmployeePosition storage position = positions[orgId][employee][poolId];
+        position.liquidity = liquidity;
+        position.depositTimestamp = block.timestamp;
+
+        // Update LendingPool
+        if (lendingPool != address(0)) {
+            // Interface for LendingPool update
+            (bool success, ) = lendingPool.call(
+                abi.encodeWithSignature(
+                    "updateCollateral(uint256,address,uint256)",
+                    orgId,
+                    employee,
+                    uint256(liquidity)
+                )
+            );
+            require(success, "Update failed");
+        }
     }
 
     // ============ Modifiers ============
