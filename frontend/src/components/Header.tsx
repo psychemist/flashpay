@@ -42,6 +42,12 @@ export function Header() {
                             >
                                 Payroll
                             </Link>
+                            <Link
+                                href="/lending"
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                Lending
+                            </Link>
                         </nav>
                     )}
 
